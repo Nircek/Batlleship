@@ -1,3 +1,4 @@
 [submodule "py-pps"]
 	path = pypps
 	url = https://github.com/Nircek/py-pps.git
+	ignore = dirty
