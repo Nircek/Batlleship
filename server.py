@@ -35,5 +35,18 @@ class Server:
     def setRooms(self):
         self.p.varwrite('', 'rooms', json.dumps(self.rooms))
 
+    def handleEvent(self):
+        try:
+            ev = self.p.pop()
+        except PPSNullError:
+            return False
+        print(ev)
+        if len(ev) > 1:
+            if ev[1] == 'getRooms()':
+                self.p.reply(ev[0], json.dumps({'cmd': 'setRooms()', 'data': json.dumps(self.rooms)}))
+        return True
+
 s = Server()
 s.count()
+while s.handleEvent():
+    pass
