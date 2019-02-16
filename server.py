@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import configparser
 from pypps.PyPPSPS import *
-import json
+import traceback
 
 def q(x):
     print(x)
@@ -41,17 +41,22 @@ class Server:
         except PPSNullError:
             return False
         print(ev)
-        b = False
-        if 'cmd' in ev:
-            if ev['cmd'] == 'getRooms()':
-                self.p.replyj(ev['user'], {'cmd': 'setRooms()', 'data': self.rooms})
+        try:
+            b = False
+            if 'cmd' in ev:
+                if ev['cmd'] == 'getRooms()':
+                    self.p.replyj(ev['user'], {'cmd': 'setRooms()', 'data': self.rooms})
+                else:
+                    b = True
             else:
                 b = True
-        else:
-            b = True
-        if b:
-            self.p.replyj(ev['user'], {'cmd': 'error()', 'type': 'cmd', 'data': ev})
-        return True
+            if b:
+                self.p.replyj(ev['user'], {'cmd': 'error()', 'type': 'cmd', 'data': ev})
+            return True
+        except:
+            exc = traceback.format_exc()
+            self.p.replyj(ev['user'], {'cmd': 'error()', 'type': 'exception', 'data': exc})
+            print(exc)
 
 s = Server()
 s.count()
