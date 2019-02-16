@@ -35,6 +35,9 @@ class Server:
     def setRooms(self):
         self.p.varwritej('rooms', self.rooms)
 
+    def sendRooms(self, user):
+        self.p.replyj(user, {'cmd': 'setRooms()', 'data': self.rooms})
+
     def handleEvent(self):
         try:
             ev = self.p.popj()
@@ -44,8 +47,23 @@ class Server:
         try:
             b = False
             if 'cmd' in ev:
-                if ev['cmd'] == 'getRooms()':
-                    self.p.replyj(ev['user'], {'cmd': 'setRooms()', 'data': self.rooms})
+                if ev['cmd'] == 'getRooms()': # void
+                    sendRooms(ev['user'])
+                elif ev['cmd'] == 'newRoom()': # player
+                    default = lambda x:{
+                        'name': x,
+                        'board': [' '*10]*10,
+                        'ready': False,
+                        'ships': [4, 3, 2, 1], # to be built
+                        'iBuilding': 0
+                    }
+                    self.rooms += [{
+                        'user': default(ev['user']),
+                        'player': default(ev['player']),
+                        'uMove': True
+                        }]
+                    self.setRooms()
+                    self.sendRooms(ev['user'])
                 else:
                     b = True
             else:
