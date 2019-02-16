@@ -41,9 +41,16 @@ class Server:
         except PPSNullError:
             return False
         print(ev)
+        b = False
         if 'cmd' in ev:
             if ev['cmd'] == 'getRooms()':
                 self.p.replyj(ev['user'], {'cmd': 'setRooms()', 'data': self.rooms})
+            else:
+                b = True
+        else:
+            b = True
+        if b:
+            self.p.replyj(ev['user'], {'cmd': 'error()', 'type': 'cmd', 'data': ev})
         return True
 
 s = Server()
