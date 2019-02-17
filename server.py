@@ -2,6 +2,7 @@
 import configparser
 from pypps.PyPPSPS import *
 import traceback
+import time
 
 def q(x):
     print(x)
@@ -28,7 +29,7 @@ class Server:
 
     def getRooms(self):
         try:
-            rooms = self.p.varreadj('rooms')
+            self.rooms = self.p.varreadj('rooms')
         except PPSNullError:
             self.setRooms()
 
@@ -36,9 +37,26 @@ class Server:
         self.p.varwritej('rooms', self.rooms)
 
     def sendRooms(self, user):
-        self.p.replyj(user, {'cmd': 'setRooms()', 'data': self.rooms})
+        r = []
+        for i in range(len(self.rooms)):
+            if user == self.rooms[i]['user']['name']:
+                r += [{
+                    'id': i,
+                    'player': self.rooms[i]['player']['name'],
+                    'move': self.rooms[i]['uMove'],
+                    'won': self.rooms[i]['won']
+                }]
+            if user == self.rooms[i]['player']['name']:
+                r += [{
+                    'id': i,
+                    'player': self.rooms[i]['user']['name'],
+                    'move': not self.rooms[i]['uMove'],
+                    'won': self.rooms[i]['won']
+                }]
+        self.p.replyj(user, {'cmd': 'setRooms()', 'data': r})
 
     def handleEvent(self):
+        print('handling...')
         try:
             ev = self.p.popj()
         except PPSNullError:
@@ -48,7 +66,7 @@ class Server:
             b = False
             if 'cmd' in ev:
                 if ev['cmd'] == 'getRooms()': # void
-                    sendRooms(ev['user'])
+                    self.sendRooms(ev['user'])
                 elif ev['cmd'] == 'newRoom()': # player
                     default = lambda x:{
                         'name': x,
@@ -60,7 +78,8 @@ class Server:
                     self.rooms += [{
                         'user': default(ev['user']),
                         'player': default(ev['player']),
-                        'uMove': True
+                        'uMove': True,
+                        'won': False
                         }]
                     self.setRooms()
                     self.sendRooms(ev['user'])
@@ -78,5 +97,8 @@ class Server:
 
 s = Server()
 s.count()
-while s.handleEvent():
-    pass
+x = time.time()-5
+while 1:
+    while not time.time()-5 > x or s.handleEvent():
+        pass
+    x = time.time()
