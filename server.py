@@ -57,6 +57,26 @@ class Server:
             r += [self.getRoomInfo(i, user)]
         self.p.replyj(user, {'cmd': 'setRooms()', 'data': r})
 
+    def sendRoom(self, user, i):
+        info = self.getRoomInfo(i, user)
+        if info['canJoin']:
+            r = {'info': info}
+            r['uBoard'] = self.rooms[i]['user' if info['isOwner'] else 'player']['board']
+            r['pBoard'] = [x.replace('O', ' ').replace('/', ' ').replace('\\', '.') for x in self.rooms[i]['player' if info['isOwner'] else 'user']['board']]
+            self.p.replyj(user, {'cmd': 'setRoom()', 'data': r})
+        else:
+            self.p.replyj(user, {'cmd': 'error()', 'type': 'you-are-not-in-the-room', 'data': [user, info['user'], info['player']]})
+    r'''
+    BOARD:
+    ' ' - water
+    '.' - bomb (shot in water)
+    'O' - ship (one deck of it)
+    '-' - shot deck of ship
+    'X' - sank ship (all decks of it are shot)
+    '/' - place where ship cannot be placed
+    '\' - / but shot
+    '''
+
     def handleEvent(self):
         print('handling...')
         try:
@@ -85,6 +105,8 @@ class Server:
                         }]
                     self.setRooms()
                     self.sendRooms(ev['user'])
+                elif ev['cmd'] == 'joinRoom()': # i
+                    self.sendRoom(ev['user'], int(ev['i']))
                 else:
                     b = True
             else:
