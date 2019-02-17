@@ -39,18 +39,12 @@ class Server:
     def sendRooms(self, user):
         r = []
         for i in range(len(self.rooms)):
-            if user == self.rooms[i]['user']['name']:
+            if user == self.rooms[i]['user']['name'] or user == self.rooms[i]['player']['name']:
+                isUser = user == self.rooms[i]['user']['name']
                 r += [{
                     'id': i,
-                    'player': self.rooms[i]['player']['name'],
-                    'move': self.rooms[i]['uMove'],
-                    'won': self.rooms[i]['won']
-                }]
-            if user == self.rooms[i]['player']['name']:
-                r += [{
-                    'id': i,
-                    'player': self.rooms[i]['user']['name'],
-                    'move': not self.rooms[i]['uMove'],
+                    'player': self.rooms[i]['player' if isUser else 'user']['name'],
+                    'move': not self.rooms[i]['uMove'] != isUser,
                     'won': self.rooms[i]['won']
                 }]
         self.p.replyj(user, {'cmd': 'setRooms()', 'data': r})
