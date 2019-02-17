@@ -36,17 +36,25 @@ class Server:
     def setRooms(self):
         self.p.varwritej('rooms', self.rooms)
 
+    def getRoomInfo(self, i, user=None):
+        join = (user == self.rooms[i]['user']['name'] or user == self.rooms[i]['player']['name']) and not user is None
+        isUser = user == self.rooms[i]['user']['name'] if join else True
+        return {
+            'id': i,
+            'user': self.rooms[i]['user' if isUser else 'player']['name'],
+            'player': self.rooms[i]['player' if isUser else 'user']['name'],
+            'uReady': self.rooms[i]['user' if isUser else 'player']['ready'],
+            'pReady': self.rooms[i]['player' if isUser else 'user']['ready'],
+            'move': (not self.rooms[i]['uMove'] != isUser) and join,
+            'won': self.rooms[i]['won'],
+            'isOwner': isUser and join,
+            'canJoin': join
+        }
+
     def sendRooms(self, user):
         r = []
         for i in range(len(self.rooms)):
-            if user == self.rooms[i]['user']['name'] or user == self.rooms[i]['player']['name']:
-                isUser = user == self.rooms[i]['user']['name']
-                r += [{
-                    'id': i,
-                    'player': self.rooms[i]['player' if isUser else 'user']['name'],
-                    'move': not self.rooms[i]['uMove'] != isUser,
-                    'won': self.rooms[i]['won']
-                }]
+            r += [self.getRoomInfo(i, user)]
         self.p.replyj(user, {'cmd': 'setRooms()', 'data': r})
 
     def handleEvent(self):
