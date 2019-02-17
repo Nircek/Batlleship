@@ -39,14 +39,17 @@ class Server:
     def getRoomInfo(self, i, user=None):
         join = (user == self.rooms[i]['user']['name'] or user == self.rooms[i]['player']['name']) and not user is None
         isUser = user == self.rooms[i]['user']['name'] if join else True
+        room = self.rooms[i]
+        uData = room['user' if isUser else 'player']
+        pData = room['player' if isUser else 'user']
         return {
             'id': i,
-            'user': self.rooms[i]['user' if isUser else 'player']['name'],
-            'player': self.rooms[i]['player' if isUser else 'user']['name'],
-            'uReady': self.rooms[i]['user' if isUser else 'player']['ready'],
-            'pReady': self.rooms[i]['player' if isUser else 'user']['ready'],
-            'move': (not self.rooms[i]['uMove'] != isUser) and join,
-            'won': self.rooms[i]['won'],
+            'user': uData['name'],
+            'player': pData['name'],
+            'uReady': uData['ready'],
+            'pReady': pData['ready'],
+            'move': (not room['uMove'] != isUser) and join,
+            'won': room['won'],
             'isOwner': isUser and join,
             'canJoin': join
         }
@@ -77,6 +80,32 @@ class Server:
     '\' - / but shot
     '''
 
+    def build(self, user, i, pos):
+        info = self.getRoomInfo(i, user)
+        if info['canJoin']:
+            x, y = pos
+            data = self.rooms[i]['user' if info['isOwner'] else 'player'] # board, ready, aShips, ships, iBuilding
+            outOfBoard = lambda x, y: x < 0 or y < 0 or x >= len(data['board']) or y >= len(data['board'][x])
+            if outOfBoard(x, y):
+                self.p.replyj(user, {'cmd': 'error()', 'type': 'coords-out-of-board', 'data': [(x, y), (len(data['board']), len(data['board'][x])]})
+            def bset(x, y, c): # board set
+                if outOfBoard(x,y):
+                    return ' '
+                data['board'][x] = data['board'][x][:y] + c + data['board'][x][y+1:]
+                return data['board'][x][y]
+            bget = lambda x, y: ' ' if outOfBoard(x,y) else data['board'][x][y]
+            # check being of chosen coordinates out of ship being built
+            # if so, end the building of previous ship
+            # if it's max of such ships, send an error()
+            # -------------------------------------
+            # check aShips and ships
+            # if there cannot be more ships with more boards, end the process of building
+            # -------------------------------------
+            # check if user has chosen place where ship has already been placed,
+            # if so, delete whole ship
+        else:
+            self.p.replyj(user, {'cmd': 'error()', 'type': 'you-are-not-in-the-room', 'data': [user, info['user'], info['player']]})
+
     def handleEvent(self):
         print('handling...')
         try:
@@ -90,11 +119,14 @@ class Server:
                 if ev['cmd'] == 'getRooms()': # void
                     self.sendRooms(ev['user'])
                 elif ev['cmd'] == 'newRoom()': # player
+                    aShips = [4, 3, 2, 1]
                     default = lambda x:{
                         'name': x,
                         'board': [' '*10]*10,
                         'ready': False,
-                        'ships': [4, 3, 2, 1], # to be built
+                        'aShips': aShips, # amount of ships to be built
+                        'ships': len(aShips) * [[]],
+                        'beingBuilt': [],
                         'iBuilding': 0
                     }
                     self.rooms += [{
@@ -107,6 +139,8 @@ class Server:
                     self.sendRooms(ev['user'])
                 elif ev['cmd'] == 'joinRoom()': # i
                     self.sendRoom(ev['user'], int(ev['i']))
+                elif ev['cmd'] == 'build()': # i, pos
+                    self.build(user, i, pos)
                 else:
                     b = True
             else:
