@@ -29,7 +29,7 @@ class Server:
 
     def getRooms(self):
         try:
-            raise PPSNullError
+            # raise PPSNullError
             self.rooms = self.p.varreadj('rooms')
         except PPSNullError:
             self.setRooms()
@@ -66,7 +66,7 @@ class Server:
         if info['canJoin']:
             r = {'info': info}
             r['uBoard'] = self.rooms[i]['user' if info['isOwner'] else 'player']['board']
-            r['pBoard'] = [x.replace('O', ' ').replace('/', ' ').replace('\\', '.') for x in self.rooms[i]['player' if info['isOwner'] else 'user']['board']]
+            r['pBoard'] = [x.replace('O', ' ').replace('/', ' ').replace('+', ' ').replace('=', ' ').replace('\\', '.') for x in self.rooms[i]['player' if info['isOwner'] else 'user']['board']]
             self.p.replyj(user, {'cmd': 'setRoom()', 'data': r})
         else:
             self.p.replyj(user, {'cmd': 'error()', 'type': 'you-are-not-in-the-room', 'data': [user, info['user'], info['player']]})
@@ -98,27 +98,26 @@ class Server:
             bget = lambda x, y: ' ' if outOfBoard(x,y) else data['board'][x][y]
             bb = data['beingBuilt']
             def put(x,y, bb=bb):
-                # /+/
+                # =+=
                 # +O+
-                # /+/
+                # =+=
                 bb += [[x,y]]
                 for a in [-1, 0, 1]:
                     for b in [-1, 0, 1]:
                         c = bget(x+a, y+b)
-                        if a*b != 0:
-                            bset(x+a, y+b, '/') if c != 'O' and c != '+' else None
-                        elif a == b:
-                            bset(x+a, y+b, 'O')
-                        else:
-                            bset(x+a, y+b, '+') if c != 'O' else None
+                        if a*b != 0: # =
+                            bset(x+a, y+b, '=') if not c in 'O+/' else None
+                        elif a != b: # +
+                            bset(x+a, y+b, '+') if not c in 'O/' else None
+                bset(x, y, 'O')
             def stop():
                 if bb:
                     data['ships'][len(bb)-1] += [bb]
                     data['beingBuilt'] = []
-                    for a in data['board']:
-                        for b in data['board']:
-                            if bget(a,b) == '+':
-                                bset(a,b,'/')
+                for a in range(len(data['board'])):
+                    for b in range(len(data['board'])):
+                        if bget(a,b) == '+' or bget(a,b) == '=':
+                            bset(a,b,'/')
             class sendInfo(Exception):
                 pass
             try:
@@ -128,13 +127,22 @@ class Server:
                         self.p.replyj(user, {'cmd': 'error()', 'type': 'max-such-ships', 'data': [len(bb), aShips[len(bb)-1]]})
                         return
                     stop()
-                elif bget(x,y) == 'O':
+                elif bget(x,y) == 'O' and not bb:
                     print(2)
+                    data['board'] = [' '*10]*10
+                    d = None
                     for e in range(len(data['ships'])):
                         for f in range(len(data['ships'][e])):
                             if pos in data['ships'][e][f]:
-                                del data['ships'][e]
-                                raise sendInfo
+                                d = e, f
+                            else:
+                                for g in data['ships'][e][f]:
+                                    put(g[0], g[1])
+                                stop()
+                    if d is None:
+                        print('NO SUCH SHIP', data['ships'], pos)
+                    else:
+                        del data['ships'][d[0]][d[1]]
                 elif sum([data['aShips'][x]-len(data['ships'][x]) for x in range(len(data['ships']))]) == 0: # if there cannot be any ship
                     print(3)
                     self.p.replyj(user, {'cmd': 'error()', 'type': 'max-ships', 'data': [data['ships'], data['aShips']]})
@@ -155,7 +163,7 @@ class Server:
             self.p.replyj(user, {'cmd': 'error()', 'type': 'you-are-not-in-the-room', 'data': [user, info['user'], info['player']]})
 
     def handleEvent(self):
-        print('handling...')
+        # print('handling...')
         try:
             ev = self.p.popj()
         except PPSNullError:
@@ -163,6 +171,7 @@ class Server:
         print(ev)
         try:
             b = False
+            isRoom = lambda i: int(i) >= len(self.rooms)
             if 'cmd' in ev:
                 if ev['cmd'] == 'getRooms()': # void
                     self.sendRooms(ev['user'])
@@ -173,7 +182,7 @@ class Server:
                         'board': [' '*10]*10,
                         'ready': False,
                         'aShips': aShips, # amount of ships to be built
-                        'ships': len(aShips) * [[]],
+                        'ships': [list(x) for x in len(aShips) * [[]]], # to make each copy with other id
                         'beingBuilt': [],
                         'iBuilding': 0
                     }
@@ -186,9 +195,15 @@ class Server:
                     self.setRooms()
                     self.sendRooms(ev['user'])
                 elif ev['cmd'] == 'joinRoom()': # i
-                    self.sendRoom(ev['user'], int(ev['i']))
+                    if isRoom(ev['i']):
+                        self.p.replyj(ev['user'], {'cmd': 'error()', 'type': 'no-room', 'data': [int(ev['i']), len(self.rooms)]})
+                    else:
+                        self.sendRoom(ev['user'], int(ev['i']))
                 elif ev['cmd'] == 'build()': # i, pos
-                    self.build(ev['user'], int(ev['i']), [int(x) for x in ev['pos']])
+                    if isRoom(ev['i']):
+                        self.p.replyj(ev['user'], {'cmd': 'error()', 'type': 'no-room', 'data': [int(ev['i']), len(self.rooms)]})
+                    else:
+                        self.build(ev['user'], int(ev['i']), [int(x) for x in ev['pos']])
                 else:
                     b = True
             else:
@@ -207,4 +222,5 @@ x = time.time()-5
 while 1:
     while not time.time()-5 > x or s.handleEvent():
         pass
+    print(s.rooms)
     x = time.time()
