@@ -29,6 +29,7 @@ class Server:
 
     def getRooms(self):
         try:
+            raise PPSNullError
             self.rooms = self.p.varreadj('rooms')
         except PPSNullError:
             self.setRooms()
@@ -84,25 +85,72 @@ class Server:
         info = self.getRoomInfo(i, user)
         if info['canJoin']:
             x, y = pos
+            pos = [x,y] # there is a list, not tuple because JSON loads everything as a list
             data = self.rooms[i]['user' if info['isOwner'] else 'player'] # board, ready, aShips, ships, iBuilding
             outOfBoard = lambda x, y: x < 0 or y < 0 or x >= len(data['board']) or y >= len(data['board'][x])
             if outOfBoard(x, y):
-                self.p.replyj(user, {'cmd': 'error()', 'type': 'coords-out-of-board', 'data': [(x, y), (len(data['board']), len(data['board'][x])]})
+                self.p.replyj(user, {'cmd': 'error()', 'type': 'coords-out-of-board', 'data': [pos, len(data['board']), len(data['board'][x])]})
             def bset(x, y, c): # board set
                 if outOfBoard(x,y):
                     return ' '
                 data['board'][x] = data['board'][x][:y] + c + data['board'][x][y+1:]
                 return data['board'][x][y]
             bget = lambda x, y: ' ' if outOfBoard(x,y) else data['board'][x][y]
-            # check being of chosen coordinates out of ship being built
-            # if so, end the building of previous ship
-            # if it's max of such ships, send an error()
-            # -------------------------------------
-            # check aShips and ships
-            # if there cannot be more ships with more boards, end the process of building
-            # -------------------------------------
-            # check if user has chosen place where ship has already been placed,
-            # if so, delete whole ship
+            bb = data['beingBuilt']
+            def put(x,y, bb=bb):
+                # /+/
+                # +O+
+                # /+/
+                bb += [[x,y]]
+                for a in [-1, 0, 1]:
+                    for b in [-1, 0, 1]:
+                        c = bget(x+a, y+b)
+                        if a*b != 0:
+                            bset(x+a, y+b, '/') if c != 'O' and c != '+' else None
+                        elif a == b:
+                            bset(x+a, y+b, 'O')
+                        else:
+                            bset(x+a, y+b, '+') if c != 'O' else None
+            def stop():
+                if bb:
+                    data['ships'][len(bb)-1] += [bb]
+                    data['beingBuilt'] = []
+                    for a in data['board']:
+                        for b in data['board']:
+                            if bget(a,b) == '+':
+                                bset(a,b,'/')
+            class sendInfo(Exception):
+                pass
+            try:
+                if bb and bget(x,y) != '+':
+                    print(1)
+                    if data['aShips'][len(bb)-1] <= len(data['ships'][len(bb)-1]):
+                        self.p.replyj(user, {'cmd': 'error()', 'type': 'max-such-ships', 'data': [len(bb), aShips[len(bb)-1]]})
+                        return
+                    stop()
+                elif bget(x,y) == 'O':
+                    print(2)
+                    for e in range(len(data['ships'])):
+                        for f in range(len(data['ships'][e])):
+                            if pos in data['ships'][e][f]:
+                                del data['ships'][e]
+                                raise sendInfo
+                elif sum([data['aShips'][x]-len(data['ships'][x]) for x in range(len(data['ships']))]) == 0: # if there cannot be any ship
+                    print(3)
+                    self.p.replyj(user, {'cmd': 'error()', 'type': 'max-ships', 'data': [data['ships'], data['aShips']]})
+                    return
+                elif (bb and bget(x,y) == '+') or (bget(x,y) == ' ' and not bb):
+                    print(4)
+                    put(x,y)
+                    if sum([data['aShips'][x]-len(data['ships'][x]) for x in range(len(bb), len(data['ships']))]) == 0: # if there cannot be larger ship
+                        stop()
+                else:
+                    print(bb, bget(x,y))
+                raise sendInfo
+            except sendInfo:
+                self.sendRoom(user, i)
+            finally:
+                self.setRooms()
         else:
             self.p.replyj(user, {'cmd': 'error()', 'type': 'you-are-not-in-the-room', 'data': [user, info['user'], info['player']]})
 
@@ -140,7 +188,7 @@ class Server:
                 elif ev['cmd'] == 'joinRoom()': # i
                     self.sendRoom(ev['user'], int(ev['i']))
                 elif ev['cmd'] == 'build()': # i, pos
-                    self.build(user, i, pos)
+                    self.build(ev['user'], int(ev['i']), [int(x) for x in ev['pos']])
                 else:
                     b = True
             else:
