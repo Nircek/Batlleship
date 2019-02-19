@@ -1,3 +1,3 @@
-[submodule "py-pps"]
-	path = py-pps
-	url = https://github.com/Nircek/py-pps.git
+[submodule "pypps"]
+	path = pypps
+	url = git@github.com:Nircek/pypps.git
