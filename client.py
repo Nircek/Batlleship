@@ -2,12 +2,47 @@
 from pypps.PyPPSPC import *
 from code import interact
 import configparser
+from tkinter import *
+from tkinter import simpledialog, messagebox
 
-config = configparser.ConfigParser()
-config.read('config.ini')
-p = PyPPSPC(config['PseudoPHPServer']['url'])
-p.connect()
-print(p.version())
-p.login(config['PseudoPHPServer']['user'], config['PseudoPHPServer']['pass'])
-print(p.refreshj())
-interact(local=locals())
+class Application(Frame):
+    def __init__(self, master=None):
+        super().__init__(master)
+        self.master = master
+        self.pack()
+        self.create_widgets()
+        self.p = None
+        self.interval_set = False
+
+    def create_widgets(self):
+        self.connect_btn = Button(self)
+        self.connect_btn["text"] = "Connect"
+        self.connect_btn["command"] = self.makePPSPC
+        self.connect_btn.pack(side="top")
+        self.quit = Button(self, text="QUIT", fg="red",
+                              command=self.master.destroy)
+        self.quit.pack(side="bottom")
+
+    def makePPSPC(self):
+        config = configparser.ConfigParser()
+        config.read('config.ini')
+        self.p = PyPPSPC(config['PseudoPHPServer']['url'])
+        self.p.input = lambda x,y:simpledialog.askstring(x, y, parent=master)
+        self.p.bool = lambda x,y:messagebox.askokcancel(x, y)
+        self.p.connect()
+        self.p.login(config['PseudoPHPServer']['user'], config['PseudoPHPServer']['pass'])
+        self.connected = True
+
+root = Tk()
+app = Application(master=root)
+app.mainloop()
+'''
+getRooms()
+newRoom() player
+joinRoom() i
+build() i, pos
+
+error() type, data
+setRoom() data={info,uBoard,pBoard}
+setRooms() data=[info]
+'''

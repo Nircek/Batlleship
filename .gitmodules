@@ -1,3 +1,4 @@
 [submodule "pypps"]
 	path = pypps
 	url = git@github.com:Nircek/pypps.git
+	ignore = dirty
