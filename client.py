@@ -14,6 +14,27 @@ class Application(Frame):
         self.p = None
         self.interval_set = False
 
+    @property
+    def interval(self):
+        return self.__interval
+
+    @interval.setter
+    def interval(self, x):
+        self.__interval = x
+        if self.interval >= 0 and not self.interval_set:
+            Timer(self.interval, self.intervalFunc).start()
+
+    def intervalFunc(self):
+        if self.interval < 0:
+            self.interval_set = False
+            return
+        self.interval_set = True
+        # ---
+        if self.interval >= 0:
+            Timer(self.interval, self.intervalFunc).start()
+        else:
+            self.interval_set = False
+
     def create_widgets(self):
         self.connect_btn = Button(self)
         self.connect_btn["text"] = "Connect"
