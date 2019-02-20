@@ -4,6 +4,7 @@ from code import interact
 import configparser
 from tkinter import *
 from tkinter import simpledialog, messagebox
+from threading import Timer
 
 class Application(Frame):
     def __init__(self, master=None):
@@ -30,6 +31,11 @@ class Application(Frame):
             return
         self.interval_set = True
         # ---
+        ev = self.p.refreshj()
+        print(ev)
+        if ev['cmd'] == 'error()':
+            messagebox.showerror(ev['type']+' error', str(ev['data']))
+        # ---
         if self.interval >= 0:
             Timer(self.interval, self.intervalFunc).start()
         else:
@@ -53,6 +59,7 @@ class Application(Frame):
         self.p.connect()
         self.p.login(config['PseudoPHPServer']['user'], config['PseudoPHPServer']['pass'])
         self.connected = True
+        self.interval = 5
 
 root = Tk()
 app = Application(master=root)
