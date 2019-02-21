@@ -6,12 +6,29 @@ from tkinter import *
 from tkinter import simpledialog, messagebox
 from threading import Timer
 
-class Application(Frame):
-    def __init__(self, master=None):
-        super().__init__(master)
-        self.master = master
-        self.pack()
-        self.create_widgets()
+class FrameHolder(Tk):
+    # inspired by https://stackoverflow.com/a/49325719/6732111
+    def __init__(self, main):
+        Tk.__init__(self)
+        self._fr = None
+        self.switch(main)
+    def switch(self, fr):
+        n = fr(self)
+        if self._fr is not None:
+            self._fr.destroy()
+        self._fr = n
+        self._fr.pack()
+
+class Main(Frame):
+    def __init__(self, master, client):
+        Frame.__init__(self, master)
+        self.client = client
+        Button(self, text='Connect', command=self.client.makePPSPC).pack()
+        Button(self, text='Quit', command=self.master.destroy).pack()
+
+class BattleshipClient:
+    def __init__(self):
+        self.frames = FrameHolder(lambda x:Main(x,self))
         self.p = None
         self.interval_set = False
 
@@ -23,7 +40,7 @@ class Application(Frame):
     def interval(self, x):
         self.__interval = x
         if self.interval >= 0 and not self.interval_set:
-            Timer(self.interval, self.intervalFunc).start()
+            print(Timer(self.interval, self.intervalFunc).start())
 
     def intervalFunc(self):
         if self.interval < 0:
@@ -41,15 +58,6 @@ class Application(Frame):
         else:
             self.interval_set = False
 
-    def create_widgets(self):
-        self.connect_btn = Button(self)
-        self.connect_btn["text"] = "Connect"
-        self.connect_btn["command"] = self.makePPSPC
-        self.connect_btn.pack(side="top")
-        self.quit = Button(self, text="QUIT", fg="red",
-                              command=self.master.destroy)
-        self.quit.pack(side="bottom")
-
     def makePPSPC(self):
         config = configparser.ConfigParser()
         config.read('config.ini')
@@ -61,9 +69,8 @@ class Application(Frame):
         self.connected = True
         self.interval = 5
 
-root = Tk()
-app = Application(master=root)
-app.mainloop()
+if __name__ == '__main__':
+    BattleshipClient().frames.mainloop()
 '''
 getRooms()
 newRoom() player
